@@ -15,14 +15,16 @@ final class ComposerConfig extends CollectorConfig
     private function __construct(
         private readonly string $composerPath,
         private readonly string $composerLockPath,
+        private readonly bool $include,
+        private readonly bool $includeDev,
     ) {}
 
     /**
      * @param list<string> $packages
      */
-    public static function create(string $composerPath = 'composer.json', string $composerLockPath = 'composer.lock', array $packages = []): self
+    public static function create(string $composerPath = 'composer.json', string $composerLockPath = 'composer.lock', array $packages = [], bool $include = true, bool $includeDev = true): self
     {
-        $result = new self($composerPath, $composerLockPath);
+        $result = new self($composerPath, $composerLockPath, $include, $includeDev);
         foreach ($packages as $package) {
             $result->addPackage($package);
         }
@@ -41,6 +43,8 @@ final class ComposerConfig extends CollectorConfig
      *     composerPath: string,
      *     composerLockPath: string,
      *     packages: list<string>,
+     *     include: bool,
+     *     includeDev: bool,
      *     private: bool,
      *     type: string}
      */
@@ -50,6 +54,8 @@ final class ComposerConfig extends CollectorConfig
             'composerPath' => $this->composerPath,
             'composerLockPath' => $this->composerLockPath,
             'packages' => $this->packages,
+            'include' => $this->include,
+            'includeDev' => $this->includeDev,
             'private' => $this->private,
             'type' => $this->collectorType->value,
         ];

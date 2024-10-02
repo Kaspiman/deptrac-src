@@ -29,17 +29,6 @@
       <code><![CDATA[!$configuration['must_not']]]></code>
     </RiskyTruthyFalsyComparison>
   </file>
-  <file src="src/Core/Layer/Collector/ComposerFilesParser.php">
-    <InvalidReturnStatement>
-      <code>$lockedPackages</code>
-    </InvalidReturnStatement>
-    <InvalidReturnType>
-      <code><![CDATA[array<string, array{
-     *     autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *     autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     * }>]]></code>
-    </InvalidReturnType>
-  </file>
   <file src="src/Core/Layer/Collector/DirectoryCollector.php">
     <ArgumentTypeCoercion>
       <code>$validatedPattern</code>

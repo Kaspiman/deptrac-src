@@ -27,6 +27,8 @@ final class ComposerCollectorTest extends TestCase
                 'composerPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.json',
                 'composerLockPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.lock',
                 'packages' => ['phpstan/phpdoc-parser'],
+                'include' => true,
+                'includeDev' => true,
             ],
             'PHPStan\\PhpDocParser\\Ast\\Attribute',
             true,
@@ -36,8 +38,43 @@ final class ComposerCollectorTest extends TestCase
                 'composerPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.json',
                 'composerLockPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.lock',
                 'packages' => ['phpstan/phpdoc-parser'],
+                'include' => true,
+                'includeDev' => true,
             ],
             'Completely\\Wrong\\Namespace\\Attribute',
+            false,
+        ];
+        yield [
+            [
+                'composerPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.json',
+                'composerLockPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.lock',
+                'packages' => ['friendsofphp/php-cs-fixer'],
+                'include' => true,
+                'includeDev' => true,
+            ],
+            'PhpCsFixer\\FileReader',
+            true,
+        ];
+        yield [
+            [
+                'composerPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.json',
+                'composerLockPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.lock',
+                'packages' => [],
+                'include' => false,
+                'includeDev' => true,
+            ],
+            'PhpCsFixer\\Config',
+            true,
+        ];
+        yield [
+            [
+                'composerPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.json',
+                'composerLockPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.lock',
+                'packages' => [],
+                'include' => true,
+                'includeDev' => false,
+            ],
+            'PhpCsFixer\\Config',
             false,
         ];
     }
@@ -64,6 +101,7 @@ final class ComposerCollectorTest extends TestCase
                 'composerPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.json',
                 'composerLockPath' => __DIR__.DIRECTORY_SEPARATOR.'data/composer.lock',
                 'packages' => ['fake_package'],
+                'includeDev' => true
             ],
             new ClassLikeReference(ClassLikeToken::fromFQCN(''), ClassLikeType::TYPE_CLASS),
         );

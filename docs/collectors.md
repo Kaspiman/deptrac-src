@@ -128,7 +128,7 @@ The `composer` collector allows you to define dependencies on composer `require`
  - That your `require-dev` dependencies are only used in you non-production code (like DB migrations or SA tools)
  - That your code does not use any transitive dependencies (dependencies on packages installed only because your `composer.json` required packages depend on them themselves)
  - That some packages are only used in particular layers
-
+### TODO Change docs after review!
 ```yaml
 deptrac:
   layers:

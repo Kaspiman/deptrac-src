@@ -7,62 +7,21 @@ namespace Qossmic\Deptrac\Core\Layer\Collector;
 use JsonException;
 use RuntimeException;
 
+/**
+ * @psalm-type Autoload = array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>}
+ * @psalm-type Package = array{name: string, autoload?: Autoload, autoload-dev?: Autoload}
+ * @psalm-type GroupedPackages = array{packages: array<string, Package>, packages-dev: array<string, Package>}
+ */
 class ComposerFilesParser
 {
     /**
-     * @var array{
-     *     packages?: array<string, array{
-     *          name: string,
-     *          autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *          autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *     }>,
-     *     packages-dev?: array<string, array{
-     *          name: string,
-     *          autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *          autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *     }>,
-     * }
-     */
-    private array $lockFile;
-
-    /**
-     * @var array<string, array{
-     *     autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *     autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     * }>
+     * @var GroupedPackages
      */
     private array $lockedPackages;
 
-    /**
-     * @throws RuntimeException
-     */
     public function __construct(string $lockFile)
     {
-        $contents = file_get_contents($lockFile);
-        if (false === $contents) {
-            throw new RuntimeException('Could not load composer.lock file');
-        }
-        try {
-            /**
-             * @var array{
-             *     packages?: array<string, array{
-             *          name: string,
-             *          autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-             *          autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-             *     }>,
-             *     packages-dev?: array<string, array{
-             *          name: string,
-             *          autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-             *          autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-             *     }>,
-             * } $jsonDecode
-             */
-            $jsonDecode = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-            $this->lockFile = $jsonDecode;
-        } catch (JsonException $exception) {
-            throw new RuntimeException('Could not parse composer.lock file', 0, $exception);
-        }
-        $this->lockedPackages = $this->getPackagesFromLockFile();
+        $this->lockedPackages = $this->getPackagesFromLockFile($lockFile);
     }
 
     /**
@@ -71,69 +30,101 @@ class ComposerFilesParser
      * @param string[] $requirements
      *
      * @return string[]
-     *
-     * @throws RuntimeException
      */
-    public function autoloadableNamespacesForRequirements(array $requirements, bool $includeDev): array
+    public function autoloadableNamespacesForRequirements(array $requirements, bool $include, bool $includeDev): array
     {
-        $namespaces = [[]];
+        /**
+         * @var array<string, array<string>> $result
+         */
+        $result = ['' => ['']];
 
-        foreach ($requirements as $package) {
-            if (!array_key_exists($package, $this->lockedPackages)) {
-                throw new RuntimeException(sprintf('Could not find a "%s" package', $package));
+        if ($include) {
+            $result += $this->iterate($this->lockedPackages['packages'], false);
+        }
+
+        if ($includeDev) {
+            $result += $this->iterate($this->lockedPackages['packages-dev'], true);
+        }
+
+        if ($requirements !== []) {
+            $filtered = [];
+            foreach ($requirements as $packageName) {
+                if (isset($result[$packageName])) {
+                    $filtered[] = $result[$packageName];
+                }
             }
 
-            $namespaces[] = $this->extractNamespaces($this->lockedPackages[$package], $includeDev);
+            $result = $filtered;
         }
 
-        return array_merge(...$namespaces);
+        return array_merge(...array_values($result));
     }
 
     /**
-     * @return array<string, array{
-     *     autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *     autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     * }>
+     * @param array<Package> $packages
+     * @return array<string, array<string>>
      */
-    private function getPackagesFromLockFile(): array
+    private function iterate(array $packages, bool $includeDev): array
     {
-        $lockedPackages = [];
+        $result = [];
 
-        foreach ($this->lockFile['packages'] ?? [] as $package) {
-            $lockedPackages[$package['name']] = $package;
+        foreach ($packages as $package) {
+            foreach ($this->extractNamespaces($package, $includeDev) as $packageName => $namespace) {
+                $result[$packageName][] = $namespace;
+            }
         }
 
-        foreach ($this->lockFile['packages-dev'] ?? [] as $package) {
-            $lockedPackages[$package['name']] = $package;
-        }
-
-        return $lockedPackages;
+        return $result;
     }
 
     /**
-     * @param array{
-     *     autoload?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     *     autoload-dev?: array{'psr-0'?: array<string, string>, 'psr-4'?: array<string, string>},
-     * } $package
-     *
-     * @return string[]
+     * @throws RuntimeException
+     * @return GroupedPackages
+     */
+    private function getPackagesFromLockFile(string $lockFile): array
+    {
+        $contents = file_get_contents($lockFile);
+        if (false === $contents) {
+            throw new RuntimeException('Could not load composer.lock file');
+        }
+        try {
+            /**
+             * @var array{packages: array<string, Package>, packages-dev: array<string, Package>} $lockPackages
+             */
+            $lockPackages = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException('Could not parse composer.lock file', 0, $exception);
+        }
+
+        // Group packages by dev and non-dev principle
+        return [
+            'packages' => array_column($lockPackages['packages'], null, 'name'),
+            'packages-dev' => array_column($lockPackages['packages-dev'], null, 'name'),
+        ];
+    }
+
+    /**
+     * @param Package $package
+     * @return array<string, string>
      */
     private function extractNamespaces(array $package, bool $includeDev): array
     {
         $namespaces = [];
+
         foreach (array_keys($package['autoload']['psr-0'] ?? []) as $namespace) {
-            $namespaces[] = $namespace;
+            $namespaces[$package['name']] = $namespace;
         }
+
         foreach (array_keys($package['autoload']['psr-4'] ?? []) as $namespace) {
-            $namespaces[] = $namespace;
+            $namespaces[$package['name']] = $namespace;
         }
 
         if ($includeDev) {
             foreach (array_keys($package['autoload-dev']['psr-0'] ?? []) as $namespace) {
-                $namespaces[] = $namespace;
+                $namespaces[$package['name']] = $namespace;
             }
             foreach (array_keys($package['autoload-dev']['psr-4'] ?? []) as $namespace) {
-                $namespaces[] = $namespace;
+                $namespaces[$package['name']] = $namespace;
             }
         }
 

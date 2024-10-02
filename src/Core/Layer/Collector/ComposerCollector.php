@@ -27,22 +27,35 @@ final class ComposerCollector implements CollectorInterface
             throw InvalidCollectorDefinitionException::invalidCollectorConfiguration('ComposerCollector needs the path to the composer.lock file as string.');
         }
 
-        if (!isset($config['packages']) || !is_array($config['packages'])) {
+        // packages is optional
+        if (isset($config['packages']) && !is_array($config['packages'])) {
             throw InvalidCollectorDefinitionException::invalidCollectorConfiguration('ComposerCollector needs the list of packages as string.');
         }
 
+        if (!isset($config['include']) || !\is_bool($config['include'])) {
+            throw InvalidCollectorDefinitionException::invalidCollectorConfiguration('ComposerCollector needs the include for packages as bool.');
+        }
+
+        if (!isset($config['includeDev']) || !\is_bool($config['includeDev'])) {
+            throw InvalidCollectorDefinitionException::invalidCollectorConfiguration('ComposerCollector needs the includeDev for dev-packages as bool.');
+        }
+
+        if (!$config['include'] && !$config['includeDev']) {
+            throw InvalidCollectorDefinitionException::invalidCollectorConfiguration('ComposerCollector needs at least one true value from the include and includeDev');
+        }
+
         try {
-            $this->parser[$config['composerLockPath']] ??= new ComposerFilesParser($config['composerLockPath']);
-            $parser = $this->parser[$config['composerLockPath']];
+            $parser = $this->parser[$config['composerLockPath']] ??= new ComposerFilesParser($config['composerLockPath']);
         } catch (RuntimeException $exception) {
             throw new CouldNotParseFileException('Could not parse composer files.', 0, $exception);
         }
 
-        try {
-            $namespaces = $parser->autoloadableNamespacesForRequirements($config['packages'], true);
-        } catch (RuntimeException $e) {
-            throw InvalidCollectorDefinitionException::invalidCollectorConfiguration(sprintf('ComposerCollector has a non-existent package defined. %s', $e->getMessage()));
-        }
+        /**
+         * @var array<string> $packages
+         */
+        $packages = $config['packages'] !== [] ? $config['packages'] : [];
+
+        $namespaces = $parser->autoloadableNamespacesForRequirements($packages, $config['include'], $config['includeDev']);
 
         $token = $reference->getToken()->toString();
 
